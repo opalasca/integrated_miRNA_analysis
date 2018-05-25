@@ -5,13 +5,14 @@
 # Script purpose: Explore the overlap between comparisons coming from same/different studies 
 ##################################################
 
-#install.packages('VennDiagram')
 library(VennDiagram)
 require(reshape2)
-setwd("~/Desktop/IBD/geo_microarray_analysis")
+setwd("~/Desktop/IBD/integrated_miRNA_analysis")
 
 # Run the analysis files for each dataset, for creating the results tables of interest 
+
 thr = 1 # threshold on the adj. p value; works as a parameter for the scripts below
+
 source("R/deseq_GSE89667.R")
 source("R/geo2R_GSE48957.R")
 source("R/geo2R_GSE32273.R")
@@ -42,6 +43,7 @@ for(i in 1:nrow(mc)) {
     rname=paste(acc, "_", cp, sep="")
     res <- read.table(file=paste("results/",acc,"_", cp, "_p_", thr, ".tsv", sep=""), sep="\t", row.names=1, header=TRUE)
     assign(rname, res)
+    #TO DO draw volcano plots; colour by avg.expr parameter
 }
 
 for(i in 1:nrow(mc)) {
@@ -52,38 +54,44 @@ for(i in 1:nrow(mc)) {
     cp2 <- mc[j,"comparison"] 
     res1 <- read.table(file=paste("results/",acc1,"_", cp1, "_p_", thr, ".tsv", sep=""), sep="\t", row.names=1, header=TRUE)
     res2 <- read.table(file=paste("results/",acc2,"_", cp2, "_p_", thr, ".tsv", sep=""), sep="\t", row.names=1, header=TRUE)
-    
+    common <- as.data.frame(merge(res1, res2, by.x='common_id', by.y='common_id'))
+    #TO DO: draw the correlation plot with names near the points;
+    #draw volcano-like plots side by side showing
+    #the miRNAs missing from the intersection in each of the two datasets
 }
 
 #TO DO: create a function for intersecting any two result tables 
 #and returning the correlation plot; run it in a loop for all result tables; 
 #the "good" comparisons should give more meaningful results than the others  
 
-GSE89667_UC_DD <- read.table(file=paste("results/",acc1,"_","UC_vs_DD","_p_",thr, ".tsv", sep=""), sep="\t", row.names=1, header=TRUE)
-GSE48957_UCa_vs_C <- read.table(file=paste("results/",acc2,"_","UCa_vs_C","_p_",thr, ".tsv",sep=""),sep="\t", row.names=1, header=TRUE)  
-GSE32273_UCpl_vs_Cpl <- read.table(file=paste("results/",acc3,"_","T_UCpl_vs_Cpl","_p_",thr, ".tsv",sep=""),sep="\t", row.names=1, header=TRUE)  
+#GSE89667_UC_DD <- read.table(file=paste("results/",acc1,"_","UC_vs_DD","_p_",thr, ".tsv", sep=""), sep="\t", row.names=1, header=TRUE)
+#GSE48957_UCa_vs_C <- read.table(file=paste("results/",acc2,"_","UCa_vs_C","_p_",thr, ".tsv",sep=""),sep="\t", row.names=1, header=TRUE)  
+#GSE32273_UCpl_vs_Cpl <- read.table(file=paste("results/",acc3,"_","T_UCpl_vs_Cpl","_p_",thr, ".tsv",sep=""),sep="\t", row.names=1, header=TRUE)  
 
-common_GSE48957_GSE89667 <- as.data.frame(merge(T_UCa_vs_C_merged, resOrdered_UC_DD, by.x='common_id', by.y='common_id', all.x=TRUE, all.y=TRUE)[c(1,2,7,8,12,13,9,17)])
+#common_GSE48957_GSE89667 <- as.data.frame(merge(T_UCa_vs_C_merged, resOrdered_UC_DD, by.x='common_id', by.y='common_id', all.x=TRUE, all.y=TRUE)[c(1,2,7,8,12,13,9,17)])
 #common_GSE48957_GSE89667 <- as.data.frame(merge(T_UCa_vs_C_merged, resOrdered_UC_DD, by.x='common_id', by.y='common_id')[c(1,2,7,8,12,13,9,17)])
 #rownames(common_GSE48957_GSE89667)=common_GSE48957_GSE89667$common_id
 
 common_GSE48957_GSE32273 <- as.data.frame(merge(GSE48957_UCa_vs_C, GSE32273_UCpl_vs_Cpl, by.x='ID', by.y='ID')[c(1,12,13,16,29,30,33,18)])
 rownames(common_GSE48957_GSE32273) <- common_GSE48957_GSE32273$common_id
 
-pdf("figures/logFC_correlation_GSE48957_GSE89667.pdf",width=6,height=5) 
-plot(common_GSE48957_GSE89667$log2FoldChange, common_GSE48957_GSE89667$logFC, col="darkgrey", panel.first=grid(),
-     main="", xlab="log2FC GSE89667", ylab="log2FC GSE48957 ",
-     pch=20, cex=0.6)
-abline(v=0)
-abline(h=0)
-with(subset(common_GSE48957_GSE89667, padj<0.1), points(log2FoldChange, logFC, pch=20, col="red", cex=0.7))
-with(subset(common_GSE48957_GSE89667, adj.P.Val<0.1), points(log2FoldChange, logFC, cex=1.1))
-#gn.selected <- (res$log2FoldChange > 1 & res$logFC < -1.2 ) 
-#|| (res$log2FoldChange < -2 & res$logFC > 1.5 )
-#text(common_GSE48957_GSE89667$log2FoldChange[gn.selected],
- #    common_GSE48957_GSE89667$logFC[gn.selected],
-  #   lab=rownames(res)[gn.selected ], cex=0.4)
-dev.off()
+draw_logFC_corr <- function(acc1, acc2, cp1, cp2, common, p1, p2){
+  pdf("figures/logFC_correlation_GSE48957_GSE89667.pdf",width=6,height=5) 
+  plot(common$logFC.x, common$logFC.y, col="darkgrey", panel.first=grid(),
+       main="", xlab="log2FC GSE89667", ylab="log2FC GSE48957 ",
+       pch=20, cex=0.6)
+  abline(v=0)
+  abline(h=0)
+  with(subset(common_GSE48957_GSE89667, padj<0.1), points(log2FoldChange, logFC, pch=20, col="red", cex=0.7))
+  with(subset(common_GSE48957_GSE89667, adj.P.Val<0.1), points(log2FoldChange, logFC, cex=1.1))
+  #gn.selected <- (res$log2FoldChange > 1 & res$logFC < -1.2 ) 
+  #|| (res$log2FoldChange < -2 & res$logFC > 1.5 )
+  #text(common_GSE48957_GSE89667$log2FoldChange[gn.selected],
+   #    common_GSE48957_GSE89667$logFC[gn.selected],
+    #   lab=rownames(res)[gn.selected ], cex=0.4)
+  dev.off()
+}
+
 
 pdf("figures/logFC_correlation_GSE48957_GSE32273.pdf",width=6,height=6) 
 res<-common_GSE48957_GSE32273
